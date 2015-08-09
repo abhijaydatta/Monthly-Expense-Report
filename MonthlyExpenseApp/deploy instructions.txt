@@ -1,0 +1,3 @@
+library(shinyapps)
+setwd("C:/Abhijay/Analytics use cases/Monthly expense analysis/Monthly expense analysis/R code/MonthlyExpenseApp")
+deployApp()
