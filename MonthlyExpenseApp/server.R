@@ -27,6 +27,7 @@ Monthly_Expense$Month<-match(Monthly_Expense$Month,month.name)
 Monthly_Expense$Full_Date<-as.Date(paste(Monthly_Expense$Year,Monthly_Expense$Month,Monthly_Expense$Date,sep = "." ),format="%Y.%m.%d")
 Itemized_Monthly_Expense <- Monthly_Expense[,c('Full_Date','Item','Category','Amount')]
 #Daily_Monthly_Expense<-ddply(Monthly_Expense,c("Full_Date"),summarize,Amount=sum(Amount))
+Itemized_Monthly_Expense$Category<-trimws(Itemized_Monthly_Expense$Category)
 All_Categories<-unique(Itemized_Monthly_Expense$Category)
 All_Categories<-as.factor(All_Categories)
 levels(All_Categories)<-c("Food",
@@ -86,6 +87,29 @@ Create_Last_Years_Expenses <- function(start_date,end_date,category)
   return(data.frame(Year=year_start,Spend=sum_of_spend))
 }
 
+Create_Prior_Years_Categorywise_Expenses <- function(start_date,end_date,category)
+{
+  index<-as.numeric(format(start_date,"%Y"))-2009
+  date_start<-rep(as.Date("1900-01-01"),index)
+  date_end<-rep(as.Date("1900-01-01"),index)
+  year_start<-rep(0,index)
+  Category_Wise_Spend<-data.frame(Category=category)
+  for (i in index:1)
+  {
+    date_start[i]<-as.Date(paste(as.numeric(format(start_date,"%Y"))-(i-1),"-",as.numeric(format(start_date,"%m")),"-",as.numeric(format(start_date,"%d")),sep=""))
+    date_end[i] <-as.Date(paste(as.numeric(format(end_date,"%Y"))-(i-1),"-",as.numeric(format(end_date,"%m")),"-",as.numeric(format(end_date,"%d")),sep=""))
+    year_start[i] <- as.numeric(format(date_start[i],"%Y"))
+    Category_Wise_Spend<-merge(Category_Wise_Spend,ddply(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=date_start[i]&Itemized_Monthly_Expense$Full_Date<=date_end[i]&Itemized_Monthly_Expense$Category%in%category,],"Category",summarize,Amount=sum(Amount)),by="Category",all.x=TRUE)
+    names(Category_Wise_Spend)[ncol(Category_Wise_Spend)]<-as.character(year_start[i])
+  }
+  Category_Wise_Spend[is.na(Category_Wise_Spend)]<-0
+  Category_Wise_Spend$Diff_Last_Yr<-Category_Wise_Spend[,ncol(Category_Wise_Spend)] - Category_Wise_Spend[,(ncol(Category_Wise_Spend)-1)]
+  Category_Wise_Spend<-Category_Wise_Spend[order(-Category_Wise_Spend[,ncol(Category_Wise_Spend)]),]
+  rownames(Category_Wise_Spend)<-NULL
+  return(Category_Wise_Spend)
+}
+
+
 
 
 # Define server logic required to draw a histogram
@@ -97,6 +121,9 @@ shinyServer(function(input, output) {
     Past_Expenses_Same_Period <- reactive({
       Create_Last_Years_Expenses(input$daterange[1],input$daterange[2],input$Category)
   })
+    Past_Categorywise_Expenses_Same_Period <- reactive({
+      Create_Prior_Years_Categorywise_Expenses(input$daterange[1],input$daterange[2],input$Category)
+    })
     
   
   Last_2Years_Start_Date <- reactive({as.Date(paste(as.numeric(format(input$daterange[1],"%Y"))-2,"-",as.numeric(format(input$daterange[1],"%m")),"-",as.numeric(format(input$daterange[1],"%d")),sep=""))})
@@ -109,7 +136,7 @@ shinyServer(function(input, output) {
   output$Summary <- renderUI({tags$p("Total Spend on",tags$strong("selected categories"),"is",tags$strong(Total()),tags$br())})
   #output$Summary_Last_Year <- renderUI({tags$p("Same period last year",tags$strong(input$Category),"was",tags$strong(Total_Last_Year()),tags$br())})
   #output$Summary_Last2_Year <- renderUI({tags$p("Same period 2 years back",tags$strong(input$Category),"was",tags$strong(Total_Last2_Year()),tags$br())})
-  #output$past_expenses_same_period <- renderDataTable(Past_Expenses_Same_Period(), options = list(searching = FALSE,paging = FALSE))
+  output$past_Categorywise_Expenses_Same_Period <- renderDataTable(Past_Categorywise_Expenses_Same_Period(), options = list(searching = FALSE,paging = FALSE))
   output$Box<-renderUI(selectizeInput("Category","Enter a Category:",levels(All_Categories),multiple=TRUE,selected=c("Food", "Rent + Maintenance", "Aparrel", "Hair cuts","Car Fuel","Car Maintenance","Newspaper","Electricity","Household items","Family responsibilities","Domestic Help","Gas","Internet","Phone","Cable","Health","Baby","Baby2","House Repair","A beauty expenses","Miscellaneous","Books")))
   output$toptenexpense <- renderDataTable(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=input$daterange[1]&Itemized_Monthly_Expense$Full_Date<=input$daterange[2]&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')][order(-Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=input$daterange[1]&Itemized_Monthly_Expense$Full_Date<=input$daterange[2]&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')]$Amount),c('Item','Amount','Full_Date')][1:10,], options = list(searching = FALSE,paging = FALSE))
   output$toptenexpense_last_year <- renderDataTable(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_Year_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_Year_End_Date()&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')][order(-Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_Year_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_Year_End_Date()&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')]$Amount),c('Item','Amount','Full_Date')][1:10,], options = list(searching = FALSE,paging = FALSE))

@@ -17,6 +17,7 @@ shinyUI(fluidPage(
            column(9,plotOutput("expenseplot"))
            ,
   hr()),
+  fluidRow(column(9,h3("Categorywise spend in prior periods",align="left"),dataTableOutput("past_Categorywise_Expenses_Same_Period"))),
   fluidRow(column(4,h3("Top 10 entries in chosen period",align="left"),dataTableOutput("toptenexpense")),
   column(4,h3("Top 10 entries prior to that",align="left"),dataTableOutput("toptenexpense_last_year")),
   column(4,h3("Top 10 entries prior to that",align="left"),dataTableOutput("toptenexpense_last_2year")))  
