@@ -10,6 +10,7 @@ require("segmented")
 require("openxlsx")
 require("stats")
 require("ggplot2")
+require("DT")
 
 # enable viewing of warning messages
 options(warn=1)
@@ -122,9 +123,10 @@ shinyServer(function(input, output) {
       Create_Last_Years_Expenses(input$daterange[1],input$daterange[2],input$Category)
   })
     Past_Categorywise_Expenses_Same_Period <- reactive({
-      Create_Prior_Years_Categorywise_Expenses(input$daterange[1],input$daterange[2],input$Category)
+      datatable(Create_Prior_Years_Categorywise_Expenses(input$daterange[1],input$daterange[2],input$Category),rownames = FALSE,selection='single',filter = "none",caption="Categorywise spend from prior years",options=list(searching = FALSE,paging = FALSE))%>%formatRound(c(2,3,4,5,6,7,8),digits=2)%>%formatStyle(c(1,2,3,4,5,6,7,8),`font-size`='10px')
     })
-    
+
+  
   
   Last_2Years_Start_Date <- reactive({as.Date(paste(as.numeric(format(input$daterange[1],"%Y"))-2,"-",as.numeric(format(input$daterange[1],"%m")),"-",as.numeric(format(input$daterange[1],"%d")),sep=""))})
   Last_2Years_End_Date <- reactive({as.Date(paste(as.numeric(format(input$daterange[2],"%Y"))-2,"-",as.numeric(format(input$daterange[2],"%m")),"-",as.numeric(format(input$daterange[2],"%d")),sep=""))})
@@ -136,11 +138,18 @@ shinyServer(function(input, output) {
   output$Summary <- renderUI({tags$p("Total Spend on",tags$strong("selected categories"),"is",tags$strong(Total()),tags$br())})
   #output$Summary_Last_Year <- renderUI({tags$p("Same period last year",tags$strong(input$Category),"was",tags$strong(Total_Last_Year()),tags$br())})
   #output$Summary_Last2_Year <- renderUI({tags$p("Same period 2 years back",tags$strong(input$Category),"was",tags$strong(Total_Last2_Year()),tags$br())})
-  output$past_Categorywise_Expenses_Same_Period <- renderDataTable(Past_Categorywise_Expenses_Same_Period(), options = list(searching = FALSE,paging = FALSE))
+
+  output$past_Categorywise_Expenses_Same_Period <- DT::renderDataTable(Past_Categorywise_Expenses_Same_Period(),server=FALSE)
+  #output$y12 = renderPrint(unlist(Past_Categorywise_Expenses_Same_Period())[input$past_Categorywise_Expenses_Same_Period_rows_selected])
+  Details_this_year<-reactive({datatable(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=input$daterange[1]&Itemized_Monthly_Expense$Full_Date<=input$daterange[2]&Itemized_Monthly_Expense$Category%in%unlist(Past_Categorywise_Expenses_Same_Period())[input$past_Categorywise_Expenses_Same_Period_rows_selected],c('Full_Date','Item','Amount')][order(-Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=input$daterange[1]&Itemized_Monthly_Expense$Full_Date<=input$daterange[2]&Itemized_Monthly_Expense$Category%in%unlist(Past_Categorywise_Expenses_Same_Period())[input$past_Categorywise_Expenses_Same_Period_rows_selected],c('Full_Date','Item','Amount')]$Amount),c('Item','Amount')][1:10,],caption="This year", selection='none',options = list(searching = FALSE,paging = FALSE),rownames=FALSE)%>%formatRound(c('Amount'),digits=2)%>%formatStyle(c(1,2),`font-size`='10px')})
+  Details_last_year<-reactive({datatable(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_Year_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_Year_End_Date()&Itemized_Monthly_Expense$Category%in%unlist(Past_Categorywise_Expenses_Same_Period())[input$past_Categorywise_Expenses_Same_Period_rows_selected],c('Full_Date','Item','Amount')][order(-Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_Year_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_Year_End_Date()&Itemized_Monthly_Expense$Category%in%unlist(Past_Categorywise_Expenses_Same_Period())[input$past_Categorywise_Expenses_Same_Period_rows_selected],c('Full_Date','Item','Amount')]$Amount),c('Item','Amount')][1:10,],caption="Last Year",selection='none', options = list(searching = FALSE,paging = FALSE),rownames=FALSE)%>%formatRound(c('Amount'),digits=2)%>%formatStyle(c(1,2),`font-size`='10px')})
+  
+  output$y12 = DT::renderDataTable(Details_this_year(),server=FALSE)
+  output$y13 = DT::renderDataTable(Details_last_year(),server=FALSE)
   output$Box<-renderUI(selectizeInput("Category","Enter a Category:",levels(All_Categories),multiple=TRUE,selected=c("Food", "Rent + Maintenance", "Aparrel", "Hair cuts","Car Fuel","Car Maintenance","Newspaper","Electricity","Household items","Family responsibilities","Domestic Help","Gas","Internet","Phone","Cable","Health","Baby","Baby2","House Repair","A beauty expenses","Miscellaneous","Books")))
-  output$toptenexpense <- renderDataTable(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=input$daterange[1]&Itemized_Monthly_Expense$Full_Date<=input$daterange[2]&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')][order(-Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=input$daterange[1]&Itemized_Monthly_Expense$Full_Date<=input$daterange[2]&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')]$Amount),c('Item','Amount','Full_Date')][1:10,], options = list(searching = FALSE,paging = FALSE))
-  output$toptenexpense_last_year <- renderDataTable(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_Year_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_Year_End_Date()&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')][order(-Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_Year_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_Year_End_Date()&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')]$Amount),c('Item','Amount','Full_Date')][1:10,], options = list(searching = FALSE,paging = FALSE))
-  output$toptenexpense_last_2year <- renderDataTable(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_2Years_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_2Years_End_Date()&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')][order(-Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_2Years_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_2Years_End_Date()&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')]$Amount),c('Item','Amount','Full_Date')][1:10,], options = list(searching = FALSE,paging = FALSE))
+  output$toptenexpense <- DT::renderDataTable(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=input$daterange[1]&Itemized_Monthly_Expense$Full_Date<=input$daterange[2]&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')][order(-Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=input$daterange[1]&Itemized_Monthly_Expense$Full_Date<=input$daterange[2]&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')]$Amount),c('Item','Amount','Full_Date')][1:10,], options = list(searching = FALSE,paging = FALSE),rownames=FALSE)
+  output$toptenexpense_last_year <- DT::renderDataTable(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_Year_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_Year_End_Date()&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')][order(-Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_Year_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_Year_End_Date()&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')]$Amount),c('Item','Amount','Full_Date')][1:10,], options = list(searching = FALSE,paging = FALSE),rownames=FALSE)
+  output$toptenexpense_last_2year <- DT::renderDataTable(Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_2Years_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_2Years_End_Date()&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')][order(-Itemized_Monthly_Expense[Itemized_Monthly_Expense$Full_Date>=Last_2Years_Start_Date()&Itemized_Monthly_Expense$Full_Date<=Last_2Years_End_Date()&Itemized_Monthly_Expense$Category%in%input$Category,c('Full_Date','Item','Amount')]$Amount),c('Item','Amount','Full_Date')][1:10,], options = list(searching = FALSE,paging = FALSE),rownames=FALSE)
   output$expenseplot<-renderPlot({
     pl<- ggplot(Past_Expenses_Same_Period(),aes(x=factor(Year),y=Spend,group=1))+xlab("Year")+ylab("Amount")+geom_point(aes(size=2))+geom_line(color="black",size=1)+geom_text(aes(label=Spend,size=2,vjust=-3))+ggtitle(paste("Trend for same categories in same period prior years"))+theme(plot.title = element_text(lineheight=1.8, face="bold"),legend.position="none",axis.title.x = element_text(face="bold",size=20),axis.title.y = element_text(face="bold",size=20))
     print(pl)
